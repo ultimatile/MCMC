@@ -3,7 +3,6 @@
 #Annealing
 L=8
 Tmin=0.1;Tmax=1;Tsteps=10
-#Tmin=2;Tmax=Tmin;Tsteps=1
 deltaT=(Tmax-Tmin)/Tsteps
 J1=-1;J2=0
 sintheta(c)=sqrt(abs(1-c^2))
@@ -24,8 +23,6 @@ for run in 1:runs
     for Tstep in 1:Tsteps
         energy=0;energy2=0
         T=Tmax-deltaT*(Tstep-1)
-        #println("T=$T")
-        auto=0
         for mcs in 1:mcs_max
             for ix in 1:L
                 for iy in 1:L
@@ -92,8 +89,6 @@ for run in 1:runs
                         +SiSj(phi[ix,iy],phi[im[ix],ip[iy]],costheta[ix,iy],costheta[im[ix],ip[iy]])
                         +SiSj(phi[ix,iy],phi[im[ix],im[iy]],costheta[ix,iy],costheta[im[ix],im[iy]])
                         )
-                        auto+=SiSj(phi[ix,iy],iphi[ix,iy],costheta[ix,iy],icostheta[ix,iy])
-                        #println(auto/(mcs-discard))
                     end
                 end
                 energy+=tmpE;energy2+=tmpE^2
