@@ -46,7 +46,7 @@ for run in 1:runs
                     +J2*(costheta[ip[ix],ip[iy]]+costheta[ip[ix],im[iy]]+costheta[im[ix],ip[iy]]+costheta[im[ix],im[iy]]))
                     betaH=sqrt(hlocalx^2+hlocaly^2+hlocalz^2)/T
                     rndm=rand()
-                    sznew=1+log(1-rndm*(1-exp(-2*betaH)))/betaH
+                    sznew=1-log(1-rndm*(1-exp(2*betaH)))/betaH
                     sinthetanew=sintheta(sznew)
                     cpsi=hlocalz/sqrt(hlocalx^2+hlocaly^2+hlocalz^2)
                     spsi=sintheta(cpsi)
