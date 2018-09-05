@@ -1,25 +1,25 @@
 #classical J1-J2 Heisenberg model
 #Heatbath method
 #Annealing
-L=8
-Tmin=0.1;Tmax=1;Tsteps=10
+L=4
+Tmin=1;Tmax=2;Tsteps=50
+#Tmin=2;Tmax=Tmin;Tsteps=1
 deltaT=(Tmax-Tmin)/Tsteps
-J1=-1;J2=0
+J1=1;J2=0
 sintheta(c)=sqrt(abs(1-c^2))
 SiSj(pi,pj,ti,tj)=cos(pi-pj)*sintheta(ti)*sintheta(tj)+ti*tj
-mcs_max=20000
+mcs_max=10000
 runs=5
-discard=mcs_max/2
+discard=8000
 frac=mcs_max-discard
+ave_ene=zeros(Tsteps);var_ene=zeros(Tsteps)
 ave_spec=zeros(Tsteps);var_spec=zeros(Tsteps)
-phi=zeros(L,L);costheta=zeros(L,L)
-iphi=zeros(L,L);icostheta=zeros(L,L)
 ip=zeros(Int,L);im=zeros(Int,L)
 for i in 1:L;ip[i]=i+1;im[i]=i-1;end
 ip[L]=1;im[1]=L
 for run in 1:runs
-    phi=2pi*rand!(iphi)
-    costheta=rand!(icostheta)
+    phi=2pi*rand!(iphi);costheta=rand!(icostheta)
+    #phi=zeros(L,L);costheta=zeros(L,L)
     for Tstep in 1:Tsteps
         energy=0;energy2=0
         T=Tmax-deltaT*(Tstep-1)
@@ -46,7 +46,7 @@ for run in 1:runs
                     +J2*(costheta[ip[ix],ip[iy]]+costheta[ip[ix],im[iy]]+costheta[im[ix],ip[iy]]+costheta[im[ix],im[iy]]))
                     betaH=sqrt(hlocalx^2+hlocaly^2+hlocalz^2)/T
                     rndm=rand()
-                    sznew=1-log(1-rndm*(1-exp(2*betaH)))/betaH
+                    sznew=-1-log1p(rndm*expm1(-2*betaH))/betaH
                     sinthetanew=sintheta(sznew)
                     cpsi=hlocalz/sqrt(hlocalx^2+hlocaly^2+hlocalz^2)
                     spsi=sintheta(cpsi)
@@ -60,17 +60,17 @@ for run in 1:runs
                     costheta[ix,iy]=-spsi*sxnew+cpsi*sznew
                     sinthetanew=sintheta(costheta[ix,iy])
                     if sy/sinthetanew > 1
-                        phi[ix,iy]=pi/2
+                        phi[ix,iy]=0.5pi
                     elseif sx/sinthetanew > 1
                         phi[ix,iy]=0
                     elseif sx/sinthetanew < -1
                         phi[ix,iy]=pi
                     elseif sy/sinthetanew < -1
-                        phi[ix,iy]=3pi
+                        phi[ix,iy]=1.5pi
                     elseif sy/sinthetanew > 0
                         phi[ix,iy]=acos(sx/sinthetanew)
                     else
-                        phi[ix,iy]=-acos(sx/sinthetanew)
+                        phi[ix,iy]=2pi-acos(sx/sinthetanew)
                     end
                 end
             end
@@ -98,9 +98,17 @@ for run in 1:runs
         spec=(energy2-energy^2)/T^2/L^2
         ave_spec[Tstep]+=spec
         var_spec[Tstep]+=spec^2
+        ave_ene[Tstep]+=energy
+        var_ene[Tstep]+=energy^2
     end
 end
 ave_spec/=runs;var_spec/=runs
-for Tstep in 1:Tsteps
-    println("$(Tmax-deltaT*(Tstep-1)) $(ave_spec[Tstep]) $(sqrt((var_spec[Tstep]-ave_spec[Tstep]^2)/(runs-1)))")
+ave_ene/=runs;var_ene/=runs
+open( "E_HB.dat", "w" ) do fp_E
+    open( "C_HB.dat", "w" ) do fp_C
+        for Tstep in 1:Tsteps
+            write( fp_E, "$(Tmax-deltaT*(Tstep-1)) $(ave_ene[Tstep]) $(sqrt((var_ene[Tstep]-ave_ene[Tstep]^2)/(runs-1)))\n" )
+            write( fp_E, "$(Tmax-deltaT*(Tstep-1)) $(ave_spec[Tstep]) $(sqrt((var_spec[Tstep]-ave_spec[Tstep]^2)/(runs-1)))\n" )
+        end
+    end
 end
