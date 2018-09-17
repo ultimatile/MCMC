@@ -64,14 +64,6 @@ for run in 1:runs
                     end
                 end
             end
-            #if mcs>discard
-            #    for ix in 1:L
-            #        for iy in 1:L
-            #           auto+=SiSj(phi[ix,iy],iphi[ix,iy],costheta[ix,iy],icostheta[ix,iy])
-            #        end
-            #    end
-            #    #println(auto/(mcs-discard))
-            #end
             energy+=tmpH;energy2+=tmpH^2
         end
         energy/=frac*2;energy2/=frac*4
