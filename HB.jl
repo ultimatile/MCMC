@@ -18,7 +18,7 @@ ip=zeros(Int,L);im=zeros(Int,L)
 for i in 1:L;ip[i]=i+1;im[i]=i-1;end
 ip[L]=1;im[1]=L
 for run in 1:runs
-    phi=2pi*rand(L,L);costheta=rand(L,L)
+    phi=2pi*rand(L,L);costheta=2*rand(L,L).-1
     #phi=zeros(L,L);costheta=zeros(L,L)
     for Tstep in 1:Tsteps
         energy=0;energy2=0

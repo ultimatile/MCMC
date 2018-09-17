@@ -14,15 +14,13 @@ discard=18000
 frac=mcs_max-discard
 ave_spec=zeros(Tsteps);var_spec=zeros(Tsteps)
 ave_ene=zeros(Tsteps);var_ene=zeros(Tsteps)
-iphi=zeros(L,L);icostheta=zeros(L,L)
 #phi=zeros(L,L);costheta=zeros(L,L)
 ip=zeros(Int,L);im=zeros(Int,L)
 for i in 1:L;ip[i]=i+1;im[i]=i-1;end
 ip[L]=1;im[1]=L
 for run in 1:runs
-    #phi=2pi*rand!(iphi)
-    #costheta=rand!(icostheta)
-    phi=zeros(L,L);costheta=zeros(L,L)
+    phi=2pi*rand(L,L);costheta=2*rand(L,L).-1
+    #phi=zeros(L,L);costheta=zeros(L,L)
     for Tstep in 1:Tsteps
         energy=0;energy2=0
         T=Tmax-deltaT*(Tstep-1)
