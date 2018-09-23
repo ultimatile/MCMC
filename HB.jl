@@ -94,6 +94,7 @@ function main(mp)
                             )
                         end
                     end
+                    #println(tmpE)
                     energy+=tmpE;energy2+=tmpE^2
                 end
             end
@@ -121,13 +122,13 @@ const L=4
 const J1=1
 const J2=0
 const runs=5
-const Tmin=1
+const Tmin=0.1
 const Tmax=2
 const Tsteps=50
 #Tmin=2;Tmax=Tmin;Tsteps=1
 const deltaT=(Tmax-Tmin)/(Tsteps-1)
-const mcs_max=10000
-const discard=8000
+const mcs_max=20000
+const discard=10000
 const frac=mcs_max-discard
 modpara=mp(L,J1,J2,runs,Tmin,Tmax,Tsteps,deltaT,mcs_max,discard,frac)
 @time main(modpara)

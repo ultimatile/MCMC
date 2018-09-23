@@ -58,13 +58,34 @@ function main(mp)
                         prob=rand()
                         if exp(-deltaE/T)>prob
                             phi[ix,iy]=newphi;costheta[ix,iy]=newcostheta
-                            if mcs>mp.discard;tmpH+=newE;end
-                        else
-                            if mcs>mp.discard;tmpH+=tmpE;end
+                        #    if mcs>mp.discard;tmpH+=newE;end
+                        #else
+                        #    if mcs>mp.discard;tmpH+=tmpE;end
                         end
                     end
                 end
-                energy+=tmpH;energy2+=tmpH^2
+                if mcs>mp.discard
+                    tmpE=0
+                    for ix in 1:mp.L
+                        for iy in 1:mp.L
+                            tmpE+=mp.J1*(
+                            SiSj(phi[ix,iy],phi[ix,ip[iy]],costheta[ix,iy],costheta[ix,ip[iy]])
+                            +SiSj(phi[ix,iy],phi[ix,im[iy]],costheta[ix,iy],costheta[ix,im[iy]])
+                            +SiSj(phi[ix,iy],phi[ip[ix],iy],costheta[ix,iy],costheta[ip[ix],iy])
+                            +SiSj(phi[ix,iy],phi[im[ix],iy],costheta[ix,iy],costheta[im[ix],iy])
+                            )+mp.J2*(
+                            SiSj(phi[ix,iy],phi[ip[ix],ip[iy]],costheta[ix,iy],costheta[ip[ix],ip[iy]])
+                            +SiSj(phi[ix,iy],phi[ip[ix],im[iy]],costheta[ix,iy],costheta[ip[ix],im[iy]])
+                            +SiSj(phi[ix,iy],phi[im[ix],ip[iy]],costheta[ix,iy],costheta[im[ix],ip[iy]])
+                            +SiSj(phi[ix,iy],phi[im[ix],im[iy]],costheta[ix,iy],costheta[im[ix],im[iy]])
+                            )
+                        end
+                    end
+                    #println(tmpE)
+                    energy+=tmpE;energy2+=tmpE^2
+                end
+                #println(tmpH)
+                #energy+=tmpH;energy2+=tmpH^2
             end
             energy/=mp.frac*2;energy2/=mp.frac*4
             spec=(energy2-energy^2)/T^2/mp.L^2
@@ -90,13 +111,13 @@ const L=4
 const J1=1
 const J2=0
 const runs=5
-const Tmin=1
+const Tmin=0.1
 const Tmax=2
 const Tsteps=50
 #Tmin=2;Tmax=Tmin;Tsteps=1
 const deltaT=(Tmax-Tmin)/(Tsteps-1)
-const mcs_max=10000
-const discard=8000
+const mcs_max=40000
+const discard=20000
 const frac=mcs_max-discard
 modpara=mp(L,J1,J2,runs,Tmin,Tmax,Tsteps,deltaT,mcs_max,discard,frac)
 @time main(modpara)
