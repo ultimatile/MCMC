@@ -104,13 +104,13 @@ function main(mp)
     for run in 1:mp.runs
         phi = 2pi * rand(mp.Tsteps, mp.L, mp.L); costheta = 2 * rand(mp.Tsteps, mp.L, mp.L) .- 1
         #phi = zeros(L, L); costheta = zeros(L, L)
+        energy = zeros(mp.Tsteps); energy2 = zeros(mp.Tsteps)
         for mcs in 1:mp.mcs_max
             if mcs % 2 == 1 #odd group
                 Tgroup = odd_group
             else #even group
                 Tgroup = even_group
             end
-            energy = zeros(mp.Tsteps); energy2 = zeros(mp.Tsteps)
             for Tstep in Tgroup
                 phi[Tstep, :, :], costheta[Tstep, :, :] = update_HB!(mp, phi[Tstep, :, :], costheta[Tstep, :, :])
                 phi[Tstep + 1, :, :], costheta[Tstep + 1, :, :] = update_HB!(mp, phi[Tstep + 1, :, :], costheta[Tstep + 1, :, :])
@@ -119,19 +119,29 @@ function main(mp)
                 tmpE2 = energy(mp, phi[irep2, :, :], costheta[irep2, :, :])
                 if exp((T[Tstep] - T[Tstep + 1]) * (tmpE2 - tmpE1)) > rand()
                     ireplica[Tstep], ireplica[Tstep + 1] = irep2, irep1
+                    if mcs > mp.discard
+                        energy[Tstep] += tmpE2; energy2[Tstep] += tmpE2 ^ 2
+                        energy[Tstep + 1] += tmpE1; energy2[Tstep + 1] += tmpE1 ^ 2
+                    end
+                else
+                    if mcs > mp.discard
+                        energy[Tstep] += tmpE1; energy2[Tstep] += tmpE1 ^ 2
+                        energy[Tstep + 1] += tmpE2; energy2[Tstep + 1] += tmpE2 ^ 2
+                    end
                 end
-                if mcs > mp.discard
-                    energy[irep1] += tmpE1; energy2[irep1] += tmpE1 ^ 2
-                    energy[irep2] += tmpE1; energy2[irep2] += tmpE2 ^ 2
-                end
+                spec = (energy2[Tstep] - energy[Tstep] ^ 2) / T[Tstep] ^ 2 / mp.L ^ 2
+                ave_spec[Tstep] += spec
+                var_spec[Tstep] += spec ^ 2
+                ave_ene[Tstep] += energy
+                var_ene[Tstep] += energy ^ 2
+                spec = (energy2[Tstep] - energy[Tstep] ^ 2) / T[Tstep] ^ 2 / mp.L ^ 2
+                ave_spec[Tstep] += spec
+                var_spec[Tstep] += spec ^ 2
+                ave_ene[Tstep] += energy
+                var_ene[Tstep] += energy ^ 2
             end
-            energy /= mp.frac * 2; energy2 /= mp.frac * 4
-            spec = (energy2 - energy ^ 2) / T ^ 2 / mp.L ^ 2
-            ave_spec[Tstep] += spec
-            var_spec[Tstep] += spec ^ 2
-            ave_ene[Tstep] += energy
-            var_ene[Tstep] += energy ^ 2
         end
+        energy /= mp.frac * 2; energy2 /= mp.frac * 4
     end
     ave_spec /= mp.runs; var_spec /= mp.runs
     ave_ene /= mp.runs; var_ene /= mp.runs
