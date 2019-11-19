@@ -9,7 +9,6 @@ struct mp
     Tmin :: Float64
     Tmax :: Float64
     Tsteps :: Int64
-    deltaT :: Float64
     mcs_max :: Int64 #Maximum number of MC steps
     discard :: Int64 #Thermalization
     frac :: Int64
@@ -20,7 +19,7 @@ end
 sintheta(c) = sqrt(abs(1 - c ^ 2))
 SiSj(pi, pj, ti, tj) = cos(pi - pj) * sintheta(ti) * sintheta(tj) + ti * tj
 
-function update_HB!(mp, phi, costheta)
+function update_HB!(mp, phi, costheta, T)
     for ix in 1:mp.L
         for iy in 1:mp.L
             sinthetapx = sintheta(costheta[mp.ip[ix], iy])
@@ -74,7 +73,7 @@ function update_HB!(mp, phi, costheta)
     return phi, costheta
 end
 
-function energy(mp, phi, costheta)
+function calc_ene(mp, phi, costheta)
     tmpE = 0
     for ix in 1:mp.L
         for iy in 1:mp.L
@@ -99,74 +98,75 @@ function main(mp)
     ave_spec = zeros(mp.Tsteps); var_spec = zeros(mp.Tsteps)
     odd_group = [2i - 1 for i in 1:div(mp.Tsteps, 2)]
     even_group = [2i for i in 1:div(mp.Tsteps - 1, 2)]
-    T = [mp.Tmax - mp.deltaT * (i - 1) for i in 1:mp.Tsteps]
-    ireplica = collect(1:mp.Tsteps)
+    r = (mp.Tmax - mp.Tmin)/(mp.Tsteps - 1) 
+    T = [mp.Tmin + r * (i - 1) for i in 1:mp.Tsteps]
+    progress = Progress(mp.runs)
     for run in 1:mp.runs
+        ireplica = collect(1:mp.Tsteps)
         phi = 2pi * rand(mp.Tsteps, mp.L, mp.L); costheta = 2 * rand(mp.Tsteps, mp.L, mp.L) .- 1
         #phi = zeros(L, L); costheta = zeros(L, L)
         energy = zeros(mp.Tsteps); energy2 = zeros(mp.Tsteps)
-        for mcs in 1:mp.mcs_max
-            if mcs % 2 == 1 #odd group
-                Tgroup = odd_group
-            else #even group
-                Tgroup = even_group
-            end
-            for Tstep in Tgroup
-                phi[Tstep, :, :], costheta[Tstep, :, :] = update_HB!(mp, phi[Tstep, :, :], costheta[Tstep, :, :])
-                phi[Tstep + 1, :, :], costheta[Tstep + 1, :, :] = update_HB!(mp, phi[Tstep + 1, :, :], costheta[Tstep + 1, :, :])
-                irep1 = ireplica[Tstep]; irep2 = ireplica[Tstep + 1]
-                tmpE1 = energy(mp, phi[irep1, :, :], costheta[irep1, :, :])
-                tmpE2 = energy(mp, phi[irep2, :, :], costheta[irep2, :, :])
-                if exp((T[Tstep] - T[Tstep + 1]) * (tmpE2 - tmpE1)) > rand()
-                    ireplica[Tstep], ireplica[Tstep + 1] = irep2, irep1
+        open("T_HB_r$(run).dat",  "w" ) do fp_T
+            for mcs in 1:mp.mcs_max
+                for i in ireplica
+                    print(fp_T, "$(T[i]) ")
+                end
+                print(fp_T, "\n")
+                tmpE = zeros(mp.Tsteps)
+                for Tstep in 1:mp.Tsteps
+                    phi[ireplica[Tstep], :, :], costheta[ireplica[Tstep], :, :] = update_HB!(mp, phi[ireplica[Tstep], :, :], costheta[ireplica[Tstep], :, :], T[Tstep])
+                    tmpE[Tstep] = calc_ene(mp, phi[ireplica[Tstep], :, :], costheta[ireplica[Tstep], :, :])
                     if mcs > mp.discard
-                        energy[Tstep] += tmpE2; energy2[Tstep] += tmpE2 ^ 2
-                        energy[Tstep + 1] += tmpE1; energy2[Tstep + 1] += tmpE1 ^ 2
-                    end
-                else
-                    if mcs > mp.discard
-                        energy[Tstep] += tmpE1; energy2[Tstep] += tmpE1 ^ 2
-                        energy[Tstep + 1] += tmpE2; energy2[Tstep + 1] += tmpE2 ^ 2
+                        energy[Tstep] += tmpE[Tstep]; energy2[Tstep] += tmpE[Tstep] ^ 2
                     end
                 end
-                spec = (energy2[Tstep] - energy[Tstep] ^ 2) / T[Tstep] ^ 2 / mp.L ^ 2
-                ave_spec[Tstep] += spec
-                var_spec[Tstep] += spec ^ 2
-                ave_ene[Tstep] += energy
-                var_ene[Tstep] += energy ^ 2
-                spec = (energy2[Tstep] - energy[Tstep] ^ 2) / T[Tstep] ^ 2 / mp.L ^ 2
-                ave_spec[Tstep] += spec
-                var_spec[Tstep] += spec ^ 2
-                ave_ene[Tstep] += energy
-                var_ene[Tstep] += energy ^ 2
-            end
+
+                if mcs % 2 == 1 #odd group
+                    Tgroup = odd_group
+                else #even group
+                    Tgroup = even_group
+                end
+
+                for Tstep in Tgroup
+                    irep1 = ireplica[Tstep]; irep2 = ireplica[Tstep + 1]
+                    if exp((1 / T[Tstep] - 1 / T[Tstep + 1]) * (tmpE[Tstep + 1] - tmpE[Tstep])) > rand()
+                        ireplica[Tstep], ireplica[Tstep + 1] = irep2, irep1
+                    end
+                end #for Tstep in Tgroup
+            end #for mcs in 1:mp.mcs_max
         end
-        energy /= mp.frac * 2; energy2 /= mp.frac * 4
-    end
-    ave_spec /= mp.runs; var_spec /= mp.runs
-    ave_ene /= mp.runs; var_ene /= mp.runs
+        #mcs average 
+        energy ./= mp.frac * 2; energy2 ./= mp.frac * 4
+        spec = (energy2 - energy .^ 2) ./ T .^ 2 ./ mp.L ^ 2
+        ave_spec += spec; var_spec += spec .^ 2
+        ave_ene += energy; var_ene += energy .^ 2
+        next!(progress)
+    end #for run in 1:mp.runs
+    #run average
+    ave_spec ./= mp.runs; var_spec ./= mp.runs
+    ave_ene ./= mp.runs; var_ene ./= mp.runs
     open( "E_HB.dat",  "w" ) do fp_E
         open( "C_HB.dat",  "w" ) do fp_C
             for Tstep in 1:mp.Tsteps
-                write( fp_E,  "$(mp.Tmax - mp.deltaT * (Tstep - 1)) $(ave_ene[Tstep]) $(sqrt((var_ene[Tstep] - ave_ene[Tstep] ^ 2) / (mp.runs - 1)))\n" )
-                write( fp_C,  "$(mp.Tmax - mp.deltaT * (Tstep - 1)) $(ave_spec[Tstep]) $(sqrt((var_spec[Tstep] - ave_spec[Tstep] ^ 2) / (mp.runs - 1)))\n" )
+                write(fp_E,  "$(T[Tstep]) $(ave_ene[Tstep]) $(sqrt((var_ene[Tstep] - ave_ene[Tstep] ^ 2) / (mp.runs - 1)))\n")
+                write(fp_C,  "$(T[Tstep]) $(ave_spec[Tstep]) $(sqrt((var_spec[Tstep] - ave_spec[Tstep] ^ 2) / (mp.runs - 1)))\n")
             end
         end
     end
 end
 
+using ProgressMeter
 L = 4
 J1 = 1
 J2 = 0
 runs = 5
-Tmin = 1
+Tmin = 0.5
 Tmax = 2
-Tsteps = 50
+Tsteps = 100
 #Tmin=2;Tmax=Tmin;Tsteps=1
-deltaT = (Tmax - Tmin) / (Tsteps - 1)
 mcs_max = 10000
 discard = 8000
 frac = mcs_max - discard
 ip = zeros(Int64, L); im = zeros(Int64, L); for i in 1:L; ip[i] = i + 1; im[i] = i - 1; end; ip[L] = 1; im[1] = L
-modpara = mp(L, J1, J2, runs, Tmin, Tmax, Tsteps, deltaT, mcs_max, discard, frac, ip, im)
+modpara = mp(L, J1, J2, runs, Tmin, Tmax, Tsteps, mcs_max, discard, frac, ip, im)
 @time main(modpara)
