@@ -14,14 +14,14 @@ struct mp <: ModelParameters
   mcs_max::Int64 #Maximum number of MC steps
   discard::Int64 #Thermalization
   frac::Int64
-  ip::Array{Int64,1}
-  im::Array{Int64,1}
+  inext::Array{Int64,1}
+  iprev::Array{Int64,1}
 
   function mp(L::Int64, J1::Float64, J2::Float64, runs::Int64, Tmin::Float64, Tmax::Float64, Tsteps::Int64, mcs_max::Int64, discard::Int64)
     deltaT = (Tmax - Tmin) / (Tsteps - 1)
-    ip, im = neighbor_indices(L)
+    inext, iprev = neighbor_indices(L)
     frac = mcs_max - discard
-    new(L, J1, J2, runs, Tmin, Tmax, Tsteps, deltaT, mcs_max, discard, frac, ip, im)
+    new(L, J1, J2, runs, Tmin, Tmax, Tsteps, deltaT, mcs_max, discard, frac, inext, iprev)
   end
 end
 
@@ -30,66 +30,72 @@ sintheta(c) = sqrt(1 - clamp(c, -1.0, 1.0)^2)
 SiSj(pi, pj, ci, cj) = cos(pi - pj) * sintheta(ci) * sintheta(cj) + ci * cj
 
 function neighbor_indices(L::Int)
-  ip = [i < L ? i + 1 : 1 for i in 1:L]
-  im = [i > 1 ? i - 1 : L for i in 1:L]
-  return ip, im
+  inext = [i < L ? i + 1 : 1 for i in 1:L]
+  iprev = [i > 1 ? i - 1 : L for i in 1:L]
+  return inext, iprev
 end
 
-function compute_hlocal(phi, costheta, ix, iy, ipx, ipy, imx, imy, J1, J2)
+function compute_hlocal(phi, costheta, ix, iy, inextx, inexty, iprevx, iprevy, J1, J2)
   hlocalx = 0.0
   hlocaly = 0.0
   hlocalz = 0.0
   J1isnotzero = !isapprox(J1, 0.0; atol=eps(Float64))
   J2isnotzero = !isapprox(J2, 0.0; atol=eps(Float64))
   if J1isnotzero
-    sinthetapx = sintheta(costheta[ipx, iy])
-    sinthetamx = sintheta(costheta[imx, iy])
-    sinthetapy = sintheta(costheta[ix, ipy])
-    sinthetamy = sintheta(costheta[ix, imy])
-    hlocalx += J1 * (cos(phi[ipx, iy]) * sinthetapx + cos(phi[imx, iy]) * sinthetamx
-                     + cos(phi[ix, ipy]) * sinthetapy + cos(phi[ix, imy]) * sinthetamy)
-    hlocaly += J1 * (sin(phi[ipx, iy]) * sinthetapx + sin(phi[imx, iy]) * sinthetamx
-                     + sin(phi[ix, ipy]) * sinthetapy + sin(phi[ix, imy]) * sinthetamy)
-    hlocalz += J1 * (costheta[ipx, iy] + costheta[imx, iy] + costheta[ix, ipy] + costheta[ix, imy])
+    sinthetapx = sintheta(costheta[inextx, iy])
+    sinthetamx = sintheta(costheta[iprevx, iy])
+    sinthetapy = sintheta(costheta[ix, inexty])
+    sinthetamy = sintheta(costheta[ix, iprevy])
+    hlocalx += J1 * (cos(phi[inextx, iy]) * sinthetapx + cos(phi[iprevx, iy]) * sinthetamx
+                     + cos(phi[ix, inexty]) * sinthetapy + cos(phi[ix, iprevy]) * sinthetamy)
+    hlocaly += J1 * (sin(phi[inextx, iy]) * sinthetapx + sin(phi[iprevx, iy]) * sinthetamx
+                     + sin(phi[ix, inexty]) * sinthetapy + sin(phi[ix, iprevy]) * sinthetamy)
+    hlocalz += J1 * (costheta[inextx, iy] + costheta[iprevx, iy] + costheta[ix, inexty] + costheta[ix, iprevy])
   end
   if J2isnotzero
-    sinthetapxpy = sintheta(costheta[ipx, ipy])
-    sinthetapxmy = sintheta(costheta[ipx, imy])
-    sinthetamxpy = sintheta(costheta[imx, ipy])
-    sinthetamxmy = sintheta(costheta[imx, imy])
-    hlocalx += J2 * (cos(phi[ipx, ipy]) * sinthetapxpy + cos(phi[ipx, imy]) * sinthetapxmy
-                     + cos(phi[imx, ipy]) * sinthetamxpy + cos(phi[imx, imy]) * sinthetamxmy)
-    hlocaly += J2 * (sin(phi[ipx, ipy]) * sinthetapxpy + sin(phi[ipx, imy]) * sinthetapxmy
-                     + sin(phi[imx, ipy]) * sinthetamxpy + sin(phi[imx, imy]) * sinthetamxmy)
-    hlocalz += J2 * (costheta[ipx, ipy] + costheta[ipx, imy] + costheta[imx, ipy] + costheta[imx, imy])
+    sinthetapxpy = sintheta(costheta[inextx, inexty])
+    sinthetapxmy = sintheta(costheta[inextx, iprevy])
+    sinthetamxpy = sintheta(costheta[iprevx, inexty])
+    sinthetamxmy = sintheta(costheta[iprevx, iprevy])
+    hlocalx += J2 * (cos(phi[inextx, inexty]) * sinthetapxpy + cos(phi[inextx, iprevy]) * sinthetapxmy
+                     + cos(phi[iprevx, inexty]) * sinthetamxpy + cos(phi[iprevx, iprevy]) * sinthetamxmy)
+    hlocaly += J2 * (sin(phi[inextx, inexty]) * sinthetapxpy + sin(phi[inextx, iprevy]) * sinthetapxmy
+                     + sin(phi[iprevx, inexty]) * sinthetamxpy + sin(phi[iprevx, iprevy]) * sinthetamxmy)
+    hlocalz += J2 * (costheta[inextx, inexty] + costheta[inextx, iprevy] + costheta[iprevx, inexty] + costheta[iprevx, iprevy])
   end
   return hlocalx, hlocaly, hlocalz
 end
 
-function calc_ene(mp::ModelParameters, phi, costheta)
+function observe_ene(mp::ModelParameters, phi, costheta)
   tmpE = 0.0
-  ip = mp.ip
-  im = mp.im
+  inext = mp.inext
+  iprev = mp.iprev
   L = mp.L
   J1 = mp.J1
   J2 = mp.J2
-  J1isnotzero = !isapprox(J1, 0.0; atol=eps(Float64))
-  J2isnotzero = !isapprox(J2, 0.0; atol=eps(Float64))
+  J1isnotzero = !iszero(J1)
+  J2isnotzero = !iszero(J2)
   for ix in 1:L, iy in 1:L
+    phixy = phi[ix, iy]
+    costhetaxy = costheta[ix, iy]
+    ixnext = inext[ix]
+    iynext = inext[iy]
+    ixprev = iprev[ix]
+    iyprev = iprev[iy]
     if J1isnotzero
       tmpE += J1 * (
-        SiSj(phi[ix, iy], phi[ix, ip[iy]], costheta[ix, iy], costheta[ix, ip[iy]])
-        + SiSj(phi[ix, iy], phi[ix, im[iy]], costheta[ix, iy], costheta[ix, im[iy]])
-        + SiSj(phi[ix, iy], phi[ip[ix], iy], costheta[ix, iy], costheta[ip[ix], iy])
-        + SiSj(phi[ix, iy], phi[im[ix], iy], costheta[ix, iy], costheta[im[ix], iy])
+        SiSj(phixy, phi[ix, iynext], costhetaxy, costheta[ix, iynext])
+        + SiSj(phixy, phi[ix, iyprev], costhetaxy, costheta[ix, iyprev])
+        + SiSj(phixy, phi[ixnext, iy], costhetaxy, costheta[ixnext, iy])
+        + SiSj(phixy, phi[ixprev, iy], costhetaxy, costheta[ixprev, iy])
       )
     end
     if J2isnotzero
       tmpE += J2 * (
-        SiSj(phi[ix, iy], phi[ip[ix], ip[iy]], costheta[ix, iy], costheta[ip[ix], ip[iy]])
-        + SiSj(phi[ix, iy], phi[ip[ix], im[iy]], costheta[ix, iy], costheta[ip[ix], im[iy]])
-        + SiSj(phi[ix, iy], phi[im[ix], ip[iy]], costheta[ix, iy], costheta[im[ix], ip[iy]])
-        + SiSj(phi[ix, iy], phi[im[ix], im[iy]], costheta[ix, iy], costheta[im[ix], im[iy]])
+        SiSj(phixy, phi[ixnext, iynext], costhetaxy, costheta[ixnext, iynext])
+        + SiSj(phixy, phi[ixnext, iyprev], costhetaxy, costheta[ixnext, iyprev])
+        + SiSj(phixy, phi[ixprev, iynext], costhetaxy, costheta[ixprev, iynext])
+        + SiSj(phixy, phi[ixprev, iyprev], costhetaxy, costheta[ixprev, iyprev])
       )
     end
   end
@@ -108,8 +114,8 @@ function main(mp::ModelParameters)
   ave_spec = zeros(Tsteps)
   var_spec = zeros(Tsteps)
   Ts = [mp.Tmax - deltaT * (Tstep - 1) for Tstep in 1:Tsteps]
-  ip = mp.ip
-  im = mp.im
+  inext = mp.inext
+  iprev = mp.iprev
   for run in 1:runs
     phi = 2pi * rand(L, L)
     costheta = 2 * rand(L, L) .- 1
@@ -120,18 +126,21 @@ function main(mp::ModelParameters)
       T = Ts[Tstep]
       for mcs in 1:mp.mcs_max
         for ix in 1:L, iy in 1:L
-          ipx = ip[ix]
-          imx = im[ix]
-          ipy = ip[iy]
-          imy = im[iy]
-          hlocalx, hlocaly, hlocalz = compute_hlocal(phi, costheta, ix, iy, ipx, ipy, imx, imy, mp.J1, mp.J2)
-          betaH = sqrt(hlocalx^2 + hlocaly^2 + hlocalz^2) / T
+          inextx = inext[ix]
+          iprevx = iprev[ix]
+          inexty = inext[iy]
+          iprevy = iprev[iy]
+          hlocalx, hlocaly, hlocalz = compute_hlocal(phi, costheta, ix, iy, inextx, inexty, iprevx, iprevy, mp.J1, mp.J2)
+          hlocalxy = hlocalx^2 + hlocaly^2
+          sqrt_hlocalxy = sqrt(hlocalxy)
+          sqrt_hlocalxyz = sqrt(hlocalxy + hlocalz^2)
+          betaH = sqrt_hlocalxyz / T
           sznew = -1 - log1p(rand() * expm1(-2 * betaH)) / betaH
           sinthetanew = sintheta(sznew)
-          cpsi = hlocalz / sqrt(hlocalx^2 + hlocaly^2 + hlocalz^2)
+          cpsi = hlocalz / sqrt_hlocalxyz
           spsi = sintheta(cpsi)
-          cphi = hlocalx / sqrt(hlocalx^2 + hlocaly^2)
-          sphi = hlocaly / sqrt(hlocalx^2 + hlocaly^2)
+          cphi = hlocalx / sqrt_hlocalxy
+          sphi = hlocaly / sqrt_hlocalxy
           phi_rand = 2pi * rand()
           sxnew = cos(phi_rand) * sinthetanew
           synew = sin(phi_rand) * sinthetanew
@@ -142,9 +151,9 @@ function main(mp::ModelParameters)
           phi[ix, iy] = mod(atan(sy, sx), 2pi)
         end
         if mcs > discard
-          tmpE = calc_ene(mp, phi, costheta)
-          energy += tmpE
-          energy2 += tmpE^2
+          ene_per_mcs = observe_ene(mp, phi, costheta)
+          energy += ene_per_mcs
+          energy2 += ene_per_mcs^2
         end
       end
       energy /= frac * 2
@@ -163,8 +172,9 @@ function main(mp::ModelParameters)
   open("E_HB.dat", "w") do fp_E
     open("C_HB.dat", "w") do fp_C
       for Tstep in 1:Tsteps
-        write(fp_E, "$(mp.Tmax-deltaT*(Tstep-1)) $(ave_ene[Tstep]) $(sqrt((var_ene[Tstep]-ave_ene[Tstep]^2)/(runs-1)))\n")
-        write(fp_C, "$(mp.Tmax-deltaT*(Tstep-1)) $(ave_spec[Tstep]) $(sqrt((var_spec[Tstep]-ave_spec[Tstep]^2)/(runs-1)))\n")
+        T = Ts[Tstep]
+        write(fp_E, "$T $(ave_ene[Tstep]) $(sqrt((var_ene[Tstep]-ave_ene[Tstep]^2)/(runs-1)))\n")
+        write(fp_C, "$T $(ave_spec[Tstep]) $(sqrt((var_spec[Tstep]-ave_spec[Tstep]^2)/(runs-1)))\n")
       end
     end
   end
