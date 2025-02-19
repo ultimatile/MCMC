@@ -75,20 +75,8 @@ function main(mp)
             sx = cpsi * cphi * sxnew - sphi * synew + spsi * cphi * sznew
             sy = cpsi * sphi * sxnew + cphi * synew + spsi * sphi * sznew
             costheta[ix, iy] = -spsi * sxnew + cpsi * sznew
-            sinthetanew = sintheta(costheta[ix, iy])
-            if sy / sinthetanew > 1
-              phi[ix, iy] = 0.5pi
-            elseif sx / sinthetanew > 1
-              phi[ix, iy] = 0
-            elseif sx / sinthetanew < -1
-              phi[ix, iy] = pi
-            elseif sy / sinthetanew < -1
-              phi[ix, iy] = 1.5pi
-            elseif sy / sinthetanew > 0
-              phi[ix, iy] = acos(sx / sinthetanew)
-            else
-              phi[ix, iy] = 2pi - acos(sx / sinthetanew)
-            end
+            # mod is necessary to transform the angle from [-pi,pi] to [0,2pi]
+            phi[ix, iy] = mod(atan(sy, sx), 2pi)
           end
         end
         if mcs > mp.discard
