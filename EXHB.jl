@@ -1,10 +1,10 @@
 #classical J1-J2 Heisenberg model
 #Heatbath method
-#Annealing
+#replica exchange
 struct mp
   L::Int64
-  J1::Float64 #exchange coupling
-  J2::Float64 #hopping
+  J1::Float64 # neareast neighbor exchange coupling
+  J2::Float64 # next-neareast neighbor exchange coupling
   runs::Int64
   Tmin::Float64
   Tmax::Float64
