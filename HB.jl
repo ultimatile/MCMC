@@ -1,10 +1,11 @@
 #classical J1-J2 Heisenberg model
 #Heatbath method
 #Annealing
-struct mp
+abstract type ModelParameters end
+struct mp <: ModelParameters
   L::Int64
-  J1::Float64 #exchange coupling
-  J2::Float64 #hopping
+  J1::Float64 # neareast neighbor exchange coupling
+  J2::Float64 # next-neareast neighbor exchange coupling
   runs::Int64
   Tmin::Float64
   Tmax::Float64
@@ -13,6 +14,15 @@ struct mp
   mcs_max::Int64 #Maximum number of MC steps
   discard::Int64 #Thermalization
   frac::Int64
+  ip::Array{Int64,1}
+  im::Array{Int64,1}
+
+  function mp(L::Int64, J1::Float64, J2::Float64, runs::Int64, Tmin::Float64, Tmax::Float64, Tsteps::Int64, mcs_max::Int64, discard::Int64)
+    deltaT = (Tmax - Tmin) / (Tsteps - 1)
+    ip, im = neighbor_indices(L)
+    frac = mcs_max - discard
+    new(L, J1, J2, runs, Tmin, Tmax, Tsteps, deltaT, mcs_max, discard, frac, ip, im)
+  end
 end
 sintheta(c) = sqrt(abs(1 - c^2))
 SiSj(pi, pj, ti, tj) = cos(pi - pj) * sintheta(ti) * sintheta(tj) + ti * tj
@@ -125,16 +135,15 @@ function main(mp)
 end
 
 const L = 4
-const J1 = 1
-const J2 = 0
+const J1 = 1.0
+const J2 = 0.0
 const runs = 5
 const Tmin = 0.1
-const Tmax = 2
+const Tmax = 2.0
 const Tsteps = 50
 #Tmin=2;Tmax=Tmin;Tsteps=1
-const deltaT = (Tmax - Tmin) / (Tsteps - 1)
 const mcs_max = 20000
 const discard = 10000
-const frac = mcs_max - discard
-modpara = mp(L, J1, J2, runs, Tmin, Tmax, Tsteps, deltaT, mcs_max, discard, frac)
+
+modpara = mp(L, J1, J2, runs, Tmin, Tmax, Tsteps, mcs_max, discard)
 @time main(modpara)
