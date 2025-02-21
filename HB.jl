@@ -42,8 +42,8 @@ function compute_hlocal(phi, costheta, ix, iy, inextx, inexty, iprevx, iprevy, J
   hlocalx = 0.0
   hlocaly = 0.0
   hlocalz = 0.0
-  J1isnotzero = !isapprox(J1, 0.0; atol=eps(Float64))
-  J2isnotzero = !isapprox(J2, 0.0; atol=eps(Float64))
+  J1isnotzero = !iszero(J1)
+  J2isnotzero = !iszero(J2)
   if J1isnotzero
     sinthetapx = sintheta(costheta[inextx, iy])
     sinthetamx = sintheta(costheta[iprevx, iy])
