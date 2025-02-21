@@ -32,7 +32,7 @@ sintheta(c) = sqrt(1 - clamp(c, -1.0, 1.0)^2)
 
 SiSj(pi, pj, ci, cj) = cos(pi - pj) * sintheta(ci) * sintheta(cj) + ci * cj
 
-function neighbor_indices(L::Int)
+function neighbor_indices(L::Integer)
   inext = [i < L ? i + 1 : 1 for i in 1:L]
   iprev = [i > 1 ? i - 1 : L for i in 1:L]
   return inext, iprev
