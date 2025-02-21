@@ -102,6 +102,33 @@ function observe_ene(mp::ModelParameters, phi, costheta)
   return tmpE
 end
 
+function update_HB!(mp::ModelParameters, phi, costheta, T)
+  L = mp.L
+  inext = mp.inext
+  iprev = mp.iprev
+  for ix in 1:L, iy in 1:L
+    hlocalx, hlocaly, hlocalz = compute_hlocal(phi, costheta, ix, iy, inext[ix], inext[iy], iprev[ix], iprev[iy], mp.J1, mp.J2)
+    hlocalxy = hlocalx^2 + hlocaly^2
+    sqrt_hlocalxy = sqrt(hlocalxy)
+    sqrt_hlocalxyz = sqrt(hlocalxy + hlocalz^2)
+    betaH = sqrt_hlocalxyz / T
+    sznew = -1 - log1p(rand() * expm1(-2 * betaH)) / betaH
+    sinthetanew = sintheta(sznew)
+    cpsi = hlocalz / sqrt_hlocalxyz
+    spsi = sintheta(cpsi)
+    cphi = hlocalx / sqrt_hlocalxy
+    sphi = hlocaly / sqrt_hlocalxy
+    phi_rand = 2pi * rand()
+    sxnew = cos(phi_rand) * sinthetanew
+    synew = sin(phi_rand) * sinthetanew
+    sx = cpsi * cphi * sxnew - sphi * synew + spsi * cphi * sznew
+    sy = cpsi * sphi * sxnew + cphi * synew + spsi * sphi * sznew
+    costheta[ix, iy] = -spsi * sxnew + cpsi * sznew
+    # mod is necessary to transform the angle from [-pi,pi] to [0,2pi]
+    phi[ix, iy] = mod(atan(sy, sx), 2pi)
+  end
+end
+
 function main(mp::ModelParameters)
   Tsteps = mp.Tsteps
   L = mp.L
@@ -114,42 +141,16 @@ function main(mp::ModelParameters)
   ave_spec = zeros(Tsteps)
   var_spec = zeros(Tsteps)
   Ts = [mp.Tmax - deltaT * (Tstep - 1) for Tstep in 1:Tsteps]
-  inext = mp.inext
-  iprev = mp.iprev
   for run in 1:runs
     phi = 2pi * rand(L, L)
-    costheta = 2 * rand(L, L) .- 1
+    costheta = 2rand(L, L) .- 1
     #phi=zeros(L,L);costheta=zeros(L,L)
     for Tstep in 1:Tsteps
       energy = 0.0
       energy2 = 0.0
       T = Ts[Tstep]
       for mcs in 1:mp.mcs_max
-        for ix in 1:L, iy in 1:L
-          inextx = inext[ix]
-          iprevx = iprev[ix]
-          inexty = inext[iy]
-          iprevy = iprev[iy]
-          hlocalx, hlocaly, hlocalz = compute_hlocal(phi, costheta, ix, iy, inextx, inexty, iprevx, iprevy, mp.J1, mp.J2)
-          hlocalxy = hlocalx^2 + hlocaly^2
-          sqrt_hlocalxy = sqrt(hlocalxy)
-          sqrt_hlocalxyz = sqrt(hlocalxy + hlocalz^2)
-          betaH = sqrt_hlocalxyz / T
-          sznew = -1 - log1p(rand() * expm1(-2 * betaH)) / betaH
-          sinthetanew = sintheta(sznew)
-          cpsi = hlocalz / sqrt_hlocalxyz
-          spsi = sintheta(cpsi)
-          cphi = hlocalx / sqrt_hlocalxy
-          sphi = hlocaly / sqrt_hlocalxy
-          phi_rand = 2pi * rand()
-          sxnew = cos(phi_rand) * sinthetanew
-          synew = sin(phi_rand) * sinthetanew
-          sx = cpsi * cphi * sxnew - sphi * synew + spsi * cphi * sznew
-          sy = cpsi * sphi * sxnew + cphi * synew + spsi * sphi * sznew
-          costheta[ix, iy] = -spsi * sxnew + cpsi * sznew
-          # mod is necessary to transform the angle from [-pi,pi] to [0,2pi]
-          phi[ix, iy] = mod(atan(sy, sx), 2pi)
-        end
+        update_HB!(mp, phi, costheta, T)
         if mcs > discard
           ene_per_mcs = observe_ene(mp, phi, costheta)
           energy += ene_per_mcs
@@ -191,5 +192,12 @@ const Tsteps = 50
 const mcs_max = 20000
 const discard = 10000
 
-modpara = mp(L, J1, J2, runs, Tmin, Tmax, Tsteps, mcs_max, discard)
-@time main(modpara)
+function main(ARGS)
+  return main(mp(L, J1, J2, runs, Tmin, Tmax, Tsteps, mcs_max, discard))
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+  @time main(ARGS)
+end
+
+@main
