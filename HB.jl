@@ -1,6 +1,9 @@
+using ProgressMeter
+
 #classical J1-J2 Heisenberg model
 #Heatbath method
 #Annealing
+
 abstract type ModelParameters end
 struct mp <: ModelParameters
   L::Int64
@@ -141,7 +144,7 @@ function main(mp::ModelParameters)
   ave_spec = zeros(Tsteps)
   var_spec = zeros(Tsteps)
   Ts = [mp.Tmax - deltaT * (Tstep - 1) for Tstep in 1:Tsteps]
-  for run in 1:runs
+  @showprogress for run in 1:runs
     phi = 2pi * rand(L, L)
     costheta = 2rand(L, L) .- 1
     #phi=zeros(L,L);costheta=zeros(L,L)
@@ -181,23 +184,19 @@ function main(mp::ModelParameters)
   end
 end
 
-const L = 4
-const J1 = 1.0
-const J2 = 0.0
-const runs = 5
-const Tmin = 0.1
-const Tmax = 2.0
-const Tsteps = 50
-#Tmin=2;Tmax=Tmin;Tsteps=1
-const mcs_max = 20000
-const discard = 10000
 
 function main(ARGS)
+  L = 4
+  J1 = 1.0
+  J2 = 0.0
+  runs = 5
+  Tmin = 0.1
+  Tmax = 2.0
+  Tsteps = 50
+  #Tmin=2;Tmax=Tmin;Tsteps=1
+  mcs_max = 20000
+  discard = 10000
   return main(mp(L, J1, J2, runs, Tmin, Tmax, Tsteps, mcs_max, discard))
-end
-
-if abspath(PROGRAM_FILE) == @__FILE__
-  @time main(ARGS)
 end
 
 @main
