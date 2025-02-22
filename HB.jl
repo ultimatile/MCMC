@@ -1,5 +1,3 @@
-using ProgressMeter
-
 #classical J1-J2 Heisenberg model
 #Heatbath method
 #Annealing
@@ -144,7 +142,7 @@ function main(mp::ModelParameters)
   ave_spec = zeros(Tsteps)
   var_spec = zeros(Tsteps)
   Ts = [mp.Tmax - deltaT * (Tstep - 1) for Tstep in 1:Tsteps]
-  @showprogress for run in 1:runs
+  for run in 1:runs
     phi = 2pi * rand(L, L)
     costheta = 2rand(L, L) .- 1
     #phi=zeros(L,L);costheta=zeros(L,L)
